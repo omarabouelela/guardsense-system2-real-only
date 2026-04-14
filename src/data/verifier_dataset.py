@@ -134,13 +134,14 @@ def build_eval_transform() -> Callable[[torch.Tensor], torch.Tensor]:
     return _transform
 
 
-def class_weights_from_manifest(manifest_path: Path, split: str) -> torch.Tensor:
+def class_weights_from_manifest(manifest_path: Path, split: str, num_classes: int | None = None) -> torch.Tensor:
     """Compute inverse-frequency class weights for CrossEntropyLoss."""
     df = pd.read_csv(manifest_path)
     counts = df[df["split"] == split]["label"].value_counts().sort_index()
+    class_count = int(num_classes if num_classes is not None else (int(df["label"].max()) + 1))
     weights = []
     total = float(counts.sum())
-    for class_id in range(3):
+    for class_id in range(class_count):
         c = float(counts.get(class_id, 1.0))
-        weights.append(total / (3.0 * c))
+        weights.append(total / (float(class_count) * c))
     return torch.tensor(weights, dtype=torch.float32)

@@ -16,7 +16,7 @@ import numpy as np
 
 LOGGER = logging.getLogger(__name__)
 
-LABEL_MAP: dict[int, str] = {0: "normal", 1: "tension", 2: "fight"}
+LABEL_MAP: dict[int, str] = {0: "normal", 1: "fight"}
 SUPPORTED_SUFFIXES = {".mp4", ".avi", ".mov", ".mkv"}
 
 

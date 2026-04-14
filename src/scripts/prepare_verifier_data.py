@@ -118,7 +118,8 @@ def main() -> None:
 
     summary = summarize_dataset(valid_rows, rejections)
     save_json(asdict(summary), out_dir / "dataset_report.json")
-    save_json({"0": "normal", "1": "pre_fight", "2": "fight"}, out_dir / "label_map.json")
+    label_map = {int(k): str(v) for k, v in (cfg.get("label_map") or {"0": "normal", "1": "fight"}).items()}
+    save_json({str(k): v for k, v in sorted(label_map.items())}, out_dir / "label_map.json")
 
     LOGGER.info("Prepared verifier dataset under %s", out_dir)
     LOGGER.info("Summary: %s", json.dumps(asdict(summary), indent=2))

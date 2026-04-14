@@ -54,7 +54,7 @@ def set_seed(seed: int) -> None:
     torch.backends.cudnn.benchmark = False
 
 
-def macro_metrics(y_true: np.ndarray, y_pred: np.ndarray, num_classes: int = 3) -> dict[str, Any]:
+def macro_metrics(y_true: np.ndarray, y_pred: np.ndarray, num_classes: int = 2) -> dict[str, Any]:
     """Compute classification metrics without third-party metric libs."""
     if y_true.size == 0 or y_pred.size == 0:
         empty_conf = np.zeros((num_classes, num_classes), dtype=np.int64)
@@ -64,10 +64,10 @@ def macro_metrics(y_true: np.ndarray, y_pred: np.ndarray, num_classes: int = 3) 
             "macro_recall": 0.0,
             "macro_f1": 0.0,
             "per_class": {str(class_id): {"precision": 0.0, "recall": 0.0, "f1": 0.0} for class_id in range(num_classes)},
-            "label_1_precision": 0.0,
-            "label_1_recall": 0.0,
+            "focus_class_precision": 0.0,
+            "focus_class_recall": 0.0,
             "label_0_false_positives": 0,
-            "label_1_vs_2_confusions": 0,
+            "cross_class_confusions": 0,
             "confusion_matrix": empty_conf.tolist(),
             "warnings": ["empty_ground_truth_or_predictions"],
         }
@@ -90,18 +90,19 @@ def macro_metrics(y_true: np.ndarray, y_pred: np.ndarray, num_classes: int = 3) 
         f1s.append(float(f1))
         per_class[str(class_id)] = {"precision": float(precision), "recall": float(recall), "f1": float(f1)}
 
-    label0_fp = int(conf[:, 0].sum() - conf[0, 0])
-    label1_vs_label2 = int(conf[1, 2] + conf[2, 1])
+    label0_fp = int(conf[:, 0].sum() - conf[0, 0]) if num_classes > 0 else 0
+    focus_class = min(1, num_classes - 1) if num_classes > 0 else 0
+    cross_class_confusions = int(conf.sum() - np.trace(conf) - label0_fp)
     return {
         "accuracy": float((y_true == y_pred).mean()),
         "macro_precision": float(np.mean(precisions)),
         "macro_recall": float(np.mean(recalls)),
         "macro_f1": float(np.mean(f1s)),
         "per_class": per_class,
-        "label_1_precision": per_class["1"]["precision"],
-        "label_1_recall": per_class["1"]["recall"],
+        "focus_class_precision": per_class.get(str(focus_class), {}).get("precision", 0.0),
+        "focus_class_recall": per_class.get(str(focus_class), {}).get("recall", 0.0),
         "label_0_false_positives": label0_fp,
-        "label_1_vs_2_confusions": label1_vs_label2,
+        "cross_class_confusions": cross_class_confusions,
         "confusion_matrix": conf.tolist(),
     }
 
@@ -253,9 +254,7 @@ def train_trigger(config: TrainConfig) -> dict[str, Any]:
                         "index": start_idx + i,
                         "y_true": int(y_np[i]),
                         "y_pred": int(preds[i]),
-                        "prob_0": float(probs[i, 0]),
-                        "prob_1": float(probs[i, 1]),
-                        "prob_2": float(probs[i, 2]),
+                        **{f"prob_{class_id}": float(probs[i, class_id]) for class_id in range(probs.shape[1])},
                     }
                 )
             start_idx += len(preds)
@@ -308,7 +307,9 @@ def _save_run_artifacts(
     fig.savefig(curves_path)
     plt.close(fig)
 
-    conf = np.array(metrics.get("confusion_matrix", [[0, 0, 0], [0, 0, 0], [0, 0, 0]]))
+    num_classes = int(config.model.num_classes)
+    default_conf = np.zeros((num_classes, num_classes), dtype=np.int64)
+    conf = np.array(metrics.get("confusion_matrix", default_conf.tolist()))
     fig2, ax2 = plt.subplots(figsize=(5, 4))
     im = ax2.imshow(conf, cmap="Blues")
     plt.colorbar(im, ax=ax2)
@@ -327,8 +328,8 @@ def _save_run_artifacts(
             [
                 f"run_dir={run_dir}",
                 f"macro_f1={metrics.get('macro_f1')}",
-                f"label_1_precision={metrics.get('label_1_precision')}",
-                f"label_1_recall={metrics.get('label_1_recall')}",
+                f"focus_class_precision={metrics.get('focus_class_precision')}",
+                f"focus_class_recall={metrics.get('focus_class_recall')}",
             ]
         ),
         encoding="utf-8",

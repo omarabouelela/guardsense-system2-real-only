@@ -60,7 +60,7 @@ def set_seed(seed: int) -> None:
     torch.cuda.manual_seed_all(seed)
 
 
-def macro_metrics(y_true: np.ndarray, y_pred: np.ndarray, num_classes: int = 3) -> dict[str, Any]:
+def macro_metrics(y_true: np.ndarray, y_pred: np.ndarray, num_classes: int = 2) -> dict[str, Any]:
     """Compute metrics without extra third-party libraries."""
     conf = np.zeros((num_classes, num_classes), dtype=np.int64)
     for truth, pred in zip(y_true, y_pred, strict=False):
@@ -80,18 +80,19 @@ def macro_metrics(y_true: np.ndarray, y_pred: np.ndarray, num_classes: int = 3) 
         recalls.append(float(recall))
         f1s.append(float(f1))
 
-    label0_fp = int(conf[:, 0].sum() - conf[0, 0])
-    label1_vs_label2 = int(conf[1, 2] + conf[2, 1])
+    label0_fp = int(conf[:, 0].sum() - conf[0, 0]) if num_classes > 0 else 0
+    focus_class = min(1, num_classes - 1) if num_classes > 0 else 0
+    cross_class_confusions = int(conf.sum() - np.trace(conf) - label0_fp)
     return {
         "accuracy": float((y_true == y_pred).mean()),
         "macro_precision": float(np.mean(precisions)),
         "macro_recall": float(np.mean(recalls)),
         "macro_f1": float(np.mean(f1s)),
         "per_class": per_class,
-        "label_1_precision": per_class["1"]["precision"],
-        "label_1_recall": per_class["1"]["recall"],
+        "focus_class_precision": per_class.get(str(focus_class), {}).get("precision", 0.0),
+        "focus_class_recall": per_class.get(str(focus_class), {}).get("recall", 0.0),
         "label_0_false_positives": label0_fp,
-        "label_1_vs_2_confusions": label1_vs_label2,
+        "cross_class_confusions": cross_class_confusions,
         "confusion_matrix": conf.tolist(),
     }
 
@@ -134,7 +135,11 @@ def train_verifier(config: VerifierTrainConfig) -> dict[str, Any]:
     test_loader = DataLoader(test_ds, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers)
 
     model = build_verifier_model(config.model).to(device)
-    weights = class_weights_from_manifest(Path(config.manifest_path), split="train").to(device)
+    weights = class_weights_from_manifest(
+        Path(config.manifest_path),
+        split="train",
+        num_classes=config.model.num_classes,
+    ).to(device)
     criterion = nn.CrossEntropyLoss(weight=weights)
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
     scheduler = ReduceLROnPlateau(optimizer, mode="max", patience=2, factor=0.5)
@@ -162,7 +167,7 @@ def train_verifier(config: VerifierTrainConfig) -> dict[str, Any]:
 
         train_loss = float(np.mean(losses)) if losses else 0.0
         val_loss, y_true_val, y_pred_val = _evaluate(model, val_loader, criterion, device)
-        val_metrics = macro_metrics(y_true_val, y_pred_val)
+        val_metrics = macro_metrics(y_true_val, y_pred_val, num_classes=config.model.num_classes)
         val_macro_f1 = float(val_metrics["macro_f1"])
         scheduler.step(val_macro_f1)
 
@@ -192,7 +197,7 @@ def train_verifier(config: VerifierTrainConfig) -> dict[str, Any]:
     checkpoint = torch.load(best_model_path, map_location=device)
     model.load_state_dict(checkpoint["model_state_dict"])
     test_loss, y_true_test, y_pred_test = _evaluate(model, test_loader, criterion, device)
-    metrics = macro_metrics(y_true_test, y_pred_test)
+    metrics = macro_metrics(y_true_test, y_pred_test, num_classes=config.model.num_classes)
     metrics["test_loss"] = test_loss
 
     pred_rows: list[dict[str, Any]] = []
@@ -209,9 +214,7 @@ def train_verifier(config: VerifierTrainConfig) -> dict[str, Any]:
                         "clip_id": clip_id,
                         "y_true": int(y_np[i]),
                         "y_pred": int(preds[i]),
-                        "prob_0": float(probs[i, 0]),
-                        "prob_1": float(probs[i, 1]),
-                        "prob_2": float(probs[i, 2]),
+                        **{f"prob_{class_id}": float(probs[i, class_id]) for class_id in range(probs.shape[1])},
                     }
                 )
 
@@ -251,7 +254,9 @@ def _save_artifacts(
     fig.savefig(run_dir / "training_curves.png")
     plt.close(fig)
 
-    conf = np.asarray(metrics.get("confusion_matrix", [[0, 0, 0], [0, 0, 0], [0, 0, 0]]))
+    num_classes = int(config.model.num_classes)
+    default_conf = np.zeros((num_classes, num_classes), dtype=np.int64)
+    conf = np.asarray(metrics.get("confusion_matrix", default_conf.tolist()))
     fig2, ax2 = plt.subplots(figsize=(5, 4))
     im = ax2.imshow(conf, cmap="Blues")
     plt.colorbar(im, ax=ax2)
@@ -269,8 +274,8 @@ def _save_artifacts(
         [
             f"run_dir={run_dir}",
             f"macro_f1={metrics.get('macro_f1')}",
-            f"label_1_precision={metrics.get('label_1_precision')}",
-            f"label_1_recall={metrics.get('label_1_recall')}",
+            f"focus_class_precision={metrics.get('focus_class_precision')}",
+            f"focus_class_recall={metrics.get('focus_class_recall')}",
         ]
     )
     (run_dir / "run.log").write_text(run_log, encoding="utf-8")

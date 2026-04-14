@@ -1,12 +1,13 @@
-project_name: guardsense_system2
+project_name: guardsense_system2_real_only
+mode: real_only_binary
+version: v1_real_binary
 seed: 42
 python_compatibility:
   min: "3.11"
   max_tested: "3.12"
 labels:
   "0": normal
-  "1": pre_fight_tension
-  "2": fight
+  "1": fight
 paths:
   frigate_clips_root: /media/frigate/clips
   frigate_recordings_root: /media/frigate/recordings

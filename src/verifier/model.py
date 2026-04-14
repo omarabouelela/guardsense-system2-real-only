@@ -12,7 +12,7 @@ class VerifierModelConfig:
     """Config for torchvision video backbones."""
 
     backbone: str = "r3d_18"
-    num_classes: int = 3
+    num_classes: int = 2
     pretrained: bool = False
     dropout: float = 0.2
 

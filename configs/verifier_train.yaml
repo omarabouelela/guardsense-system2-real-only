@@ -1,3 +1,4 @@
+mode: real_only_binary
 manifest_path: artifacts/verifier_data/split_manifest.csv
 output_dir: artifacts/verifier_runs
 batch_size: 8
@@ -12,7 +13,7 @@ mixed_precision: true
 
 model:
   backbone: r3d_18
-  num_classes: 3
+  num_classes: 2
   pretrained: false
   dropout: 0.2
 

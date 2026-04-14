@@ -113,9 +113,12 @@ def main() -> None:
     x_val, y_val = subset_arrays(x, y, val_idx)
     x_test, y_test = subset_arrays(x, y, test_idx)
 
+    label_map = {int(k): str(v) for k, v in (config.get("label_map") or {"0": "normal", "1": "fight"}).items()}
+    num_classes = len(label_map)
+
     np.save(output_dir / "X.npy", x)
     np.save(output_dir / "y.npy", y)
-    np.save(output_dir / "y_onehot.npy", one_hot_encode(y, num_classes=3))
+    np.save(output_dir / "y_onehot.npy", one_hot_encode(y, num_classes=num_classes))
 
     export_dataset_hdf5(output_dir / "trigger_dataset.hdf5", x_train, y_train, x_val, y_val, x_test, y_test)
     save_index_csv(accepted_rows, output_dir / "metadata.csv")
@@ -124,7 +127,7 @@ def main() -> None:
 
     report = generate_dataset_report(accepted_rows, sequence_lengths, missing_ratios, rejections)
     save_json(asdict(report), output_dir / "dataset_report.json")
-    save_json({"0": "normal", "1": "pre_fight", "2": "fight"}, output_dir / "label_map.json")
+    save_json({str(k): v for k, v in sorted(label_map.items())}, output_dir / "label_map.json")
 
     debug_count = min(3, len(x))
     for i in range(debug_count):

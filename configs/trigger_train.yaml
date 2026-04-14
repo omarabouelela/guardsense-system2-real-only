@@ -1,3 +1,4 @@
+mode: real_only_binary
 dataset_path: artifacts/trigger_data/trigger_dataset.hdf5
 output_dir: artifacts/runs
 batch_size: 64
@@ -8,11 +9,11 @@ patience: 8
 seed: 42
 num_workers: 0
 device: auto
-class_weights: [1.0, 1.5, 1.2]
+class_weights: [1.0, 1.2]
 model:
   architecture: temporal_cnn
   num_keypoints: 17
   num_channels: 3
-  num_classes: 3
+  num_classes: 2
   hidden_size: 128
   dropout: 0.2
