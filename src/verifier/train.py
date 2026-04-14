@@ -62,6 +62,22 @@ def set_seed(seed: int) -> None:
 
 def macro_metrics(y_true: np.ndarray, y_pred: np.ndarray, num_classes: int = 2) -> dict[str, Any]:
     """Compute metrics without extra third-party libraries."""
+    if y_true.size == 0 or y_pred.size == 0:
+        empty_conf = np.zeros((num_classes, num_classes), dtype=np.int64)
+        return {
+            "accuracy": 0.0,
+            "macro_precision": 0.0,
+            "macro_recall": 0.0,
+            "macro_f1": 0.0,
+            "per_class": {str(class_id): {"precision": 0.0, "recall": 0.0, "f1": 0.0} for class_id in range(num_classes)},
+            "focus_class_precision": 0.0,
+            "focus_class_recall": 0.0,
+            "label_0_false_positives": 0,
+            "cross_class_confusions": 0,
+            "confusion_matrix": empty_conf.tolist(),
+            "warnings": ["empty_ground_truth_or_predictions"],
+        }
+
     conf = np.zeros((num_classes, num_classes), dtype=np.int64)
     for truth, pred in zip(y_true, y_pred, strict=False):
         conf[int(truth), int(pred)] += 1
@@ -112,6 +128,8 @@ def _evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module, device
             losses.append(float(loss.item()))
             yt.append(y.cpu().numpy())
             yp.append(torch.argmax(logits, dim=-1).cpu().numpy())
+    if not yt:
+        return float(np.mean(losses)) if losses else 0.0, np.empty((0,), dtype=np.int64), np.empty((0,), dtype=np.int64)
     return float(np.mean(losses)) if losses else 0.0, np.concatenate(yt), np.concatenate(yp)
 
 
@@ -129,6 +147,8 @@ def train_verifier(config: VerifierTrainConfig) -> dict[str, Any]:
     val_cfg = VerifierDatasetConfig(num_frames=config.data.num_frames, temporal_stride=config.data.temporal_stride, random_sample=False)
     val_ds = VerifierVideoDataset(Path(config.manifest_path), "val", val_cfg, transform=build_eval_transform())
     test_ds = VerifierVideoDataset(Path(config.manifest_path), "test", val_cfg, transform=build_eval_transform())
+    if len(train_ds) == 0:
+        raise ValueError(f"No samples found for split=train in {config.manifest_path}; training requires at least one sample.")
 
     train_loader = DataLoader(train_ds, batch_size=config.batch_size, shuffle=True, num_workers=config.num_workers)
     val_loader = DataLoader(val_ds, batch_size=config.batch_size, shuffle=False, num_workers=config.num_workers)
@@ -146,6 +166,7 @@ def train_verifier(config: VerifierTrainConfig) -> dict[str, Any]:
 
     scaler = torch.amp.GradScaler("cuda", enabled=(config.mixed_precision and device.type == "cuda"))
     best_f1 = -1.0
+    best_train_loss = float("inf")
     stale = 0
     history = {"train_loss": [], "val_loss": [], "val_macro_f1": []}
     best_model_path = run_dir / "best_model.pt"
@@ -169,7 +190,14 @@ def train_verifier(config: VerifierTrainConfig) -> dict[str, Any]:
         val_loss, y_true_val, y_pred_val = _evaluate(model, val_loader, criterion, device)
         val_metrics = macro_metrics(y_true_val, y_pred_val, num_classes=config.model.num_classes)
         val_macro_f1 = float(val_metrics["macro_f1"])
-        scheduler.step(val_macro_f1)
+        val_has_samples = y_true_val.size > 0
+        if val_has_samples:
+            scheduler.step(val_macro_f1)
+        else:
+            LOGGER.warning(
+                "Validation loader produced zero samples at epoch %d; using train_loss fallback for checkpoint selection.",
+                epoch,
+            )
 
         history["train_loss"].append(train_loss)
         history["val_loss"].append(val_loss)
@@ -184,8 +212,10 @@ def train_verifier(config: VerifierTrainConfig) -> dict[str, Any]:
             val_macro_f1,
         )
 
-        if val_macro_f1 > best_f1:
-            best_f1 = val_macro_f1
+        is_better = (val_macro_f1 > best_f1) if val_has_samples else (train_loss < best_train_loss)
+        if is_better:
+            best_f1 = val_macro_f1 if val_has_samples else best_f1
+            best_train_loss = train_loss if not val_has_samples else best_train_loss
             stale = 0
             torch.save({"model_state_dict": model.state_dict(), "config": asdict(config.model)}, best_model_path)
         else:
@@ -199,6 +229,8 @@ def train_verifier(config: VerifierTrainConfig) -> dict[str, Any]:
     test_loss, y_true_test, y_pred_test = _evaluate(model, test_loader, criterion, device)
     metrics = macro_metrics(y_true_test, y_pred_test, num_classes=config.model.num_classes)
     metrics["test_loss"] = test_loss
+    if y_true_test.size == 0:
+        LOGGER.warning("Test loader produced zero samples; returning zeroed test metrics.")
 
     pred_rows: list[dict[str, Any]] = []
     model.eval()
