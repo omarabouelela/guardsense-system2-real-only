@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,8 @@ from src.data.verifier_dataset import VerifierDatasetConfig, VerifierVideoDatase
 from src.common.runtime_utils import resolve_checkpoint_path, resolve_device
 from src.verifier.model import VerifierModelConfig, build_verifier_model
 from src.verifier.train import macro_metrics
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -62,8 +65,13 @@ def evaluate_verifier(config: VerifierEvalConfig) -> dict[str, Any]:
             y_true.append(y.cpu().numpy())
             y_pred.append(torch.argmax(logits, dim=-1).cpu().numpy())
 
-    true_np = np.concatenate(y_true)
-    pred_np = np.concatenate(y_pred)
+    if not y_true:
+        LOGGER.warning("Evaluation split '%s' has zero samples in %s; returning zeroed metrics.", config.split, config.manifest_path)
+        true_np = np.empty((0,), dtype=np.int64)
+        pred_np = np.empty((0,), dtype=np.int64)
+    else:
+        true_np = np.concatenate(y_true)
+        pred_np = np.concatenate(y_pred)
     metrics = macro_metrics(true_np, pred_np, num_classes=model_cfg.num_classes)
     metrics["loss"] = float(np.mean(losses)) if losses else 0.0
     label_map_path = Path(config.manifest_path).parent / "label_map.json"

@@ -37,7 +37,7 @@ class VerifierVideoDataset(Dataset[tuple[torch.Tensor, torch.Tensor, str]]):
         self.df = pd.read_csv(manifest_path)
         self.df = self.df[self.df["split"] == split].reset_index(drop=True)
         if self.df.empty:
-            raise ValueError(f"No samples found for split={split} in {manifest_path}")
+            LOGGER.warning("No samples found for split=%s in %s; continuing with empty dataset.", split, manifest_path)
         self.config = config
         self.transform = transform
 
