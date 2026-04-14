@@ -1,4 +1,6 @@
 mode: real_only_binary
+# Produces timestamped run dirs like:
+# artifacts/verifier_runs/verifier_binary_real_only_<backbone>_<UTC_TIMESTAMP>/
 manifest_path: artifacts/verifier_data/split_manifest.csv
 output_dir: artifacts/verifier_runs
 batch_size: 8

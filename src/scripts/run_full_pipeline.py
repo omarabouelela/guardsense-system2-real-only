@@ -1,4 +1,4 @@
-"""End-to-end orchestration for GuardSense Trigger+Verifier+Fusion pipeline."""
+"""End-to-end orchestration for binary real-only Trigger+Verifier(+optional fusion)."""
 
 from __future__ import annotations
 
@@ -87,6 +87,7 @@ def main() -> None:
     (out_dir / "config_snapshot.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
 
     stage_defs: list[tuple[str, list[str]]] = [
+        ("extract_pose", ["python", "-m", "src.scripts.extract_pose_from_videos", "--config", cfg["pose_extraction_config"]]),
         ("prepare_trigger", ["python", "-m", "src.scripts.prepare_trigger_data", "--config", cfg["trigger_data_config"]]),
         ("prepare_verifier", ["python", "-m", "src.scripts.prepare_verifier_data", "--config", cfg["verifier_data_config"]]),
         ("train_trigger", ["python", "-m", "src.scripts.train_trigger", "--config", cfg["trigger_train_config"]]),
@@ -94,6 +95,9 @@ def main() -> None:
         ("train_verifier", ["python", "-m", "src.scripts.train_verifier", "--config", cfg["verifier_train_config"]]),
         ("eval_verifier", ["python", "-m", "src.scripts.eval_verifier", "--config", cfg["verifier_eval_config"]]),
     ]
+
+    if not cfg.get("run_pose_extraction", True):
+        stage_defs = [item for item in stage_defs if item[0] != "extract_pose"]
 
     if cfg.get("run_dual_inference", True):
         stage_defs.append(

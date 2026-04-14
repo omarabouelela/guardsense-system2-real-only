@@ -1,3 +1,5 @@
+# You can keep this on latest/best_model.pt; eval code also falls back to
+# newest valid verifier_* checkpoint if latest alias is missing.
 model_path: artifacts/verifier_runs/latest/best_model.pt
 manifest_path: artifacts/verifier_data/split_manifest.csv
 split: test

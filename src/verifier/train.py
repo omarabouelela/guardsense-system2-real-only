@@ -122,7 +122,7 @@ def train_verifier(config: VerifierTrainConfig) -> dict[str, Any]:
     device = resolve_device(config.device)
 
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    run_dir = Path(config.output_dir) / f"verifier_{config.model.backbone}_{run_id}"
+    run_dir = Path(config.output_dir) / f"verifier_binary_real_only_{config.model.backbone}_{run_id}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     train_ds = VerifierVideoDataset(Path(config.manifest_path), "train", config.data, transform=build_train_transform())

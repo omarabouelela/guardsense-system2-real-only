@@ -23,23 +23,29 @@ def resolve_device(device: str) -> torch.device:
     return torch.device(device)
 
 
-def _latest_run_dir(base_dir: Path, run_prefix: str) -> Path | None:
-    """Return latest run directory by modification time for a run prefix."""
+def _run_dirs_sorted(base_dir: Path, run_prefix: str) -> list[Path]:
+    """Return run directories for a prefix sorted by modification time descending."""
     if not base_dir.exists():
-        return None
+        return []
     candidates = [path for path in base_dir.glob(f"{run_prefix}*") if path.is_dir()]
     if not candidates:
-        return None
-    return max(candidates, key=lambda path: path.stat().st_mtime)
+        return []
+    return sorted(candidates, key=lambda path: path.stat().st_mtime, reverse=True)
+
+
+def _latest_run_dir(base_dir: Path, run_prefix: str) -> Path | None:
+    """Return latest run directory by modification time for a run prefix."""
+    candidates = _run_dirs_sorted(base_dir, run_prefix)
+    return candidates[0] if candidates else None
 
 
 def latest_checkpoint(base_dir: str | Path, run_prefix: str) -> Path | None:
-    """Return best_model.pt from latest run directory if available."""
-    latest = _latest_run_dir(Path(base_dir), run_prefix=run_prefix)
-    if latest is None:
-        return None
-    checkpoint = latest / "best_model.pt"
-    return checkpoint if checkpoint.exists() else None
+    """Return best_model.pt from newest valid run directory if available."""
+    for run_dir in _run_dirs_sorted(Path(base_dir), run_prefix=run_prefix):
+        checkpoint = run_dir / "best_model.pt"
+        if checkpoint.exists():
+            return checkpoint
+    return None
 
 
 def resolve_checkpoint_path(model_path: str | Path, base_dir: str | Path, run_prefix: str) -> Path:
@@ -51,10 +57,20 @@ def resolve_checkpoint_path(model_path: str | Path, base_dir: str | Path, run_pr
     """
     configured = Path(model_path)
     if configured.exists():
+        if configured.is_dir():
+            candidate = configured / "best_model.pt"
+            if candidate.exists():
+                return candidate
         return configured
 
     configured_posix = configured.as_posix()
     if "/latest/" in configured_posix or configured_posix.endswith("/latest"):
+        latest_marker = Path(base_dir) / "latest" / "LATEST_RUN_PATH.txt"
+        if latest_marker.exists():
+            marker_target = Path(latest_marker.read_text(encoding="utf-8").strip())
+            marker_ckpt = marker_target / "best_model.pt"
+            if marker_ckpt.exists():
+                return marker_ckpt
         latest = latest_checkpoint(base_dir=base_dir, run_prefix=run_prefix)
         if latest is not None:
             return latest
