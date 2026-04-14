@@ -60,6 +60,9 @@ def main() -> None:
 
     indexed: list[VideoIndexRecord] = []
     for source in cfg["sources"]:
+        if not bool(source.get("enabled", True)):
+            LOGGER.info("Skipping disabled source=%s", source.get("name", "unknown"))
+            continue
         indexed.extend(
             index_video_sources(
                 source_dirs=[resolve_raw_data_path(p) for p in source["paths"]],
@@ -67,6 +70,7 @@ def main() -> None:
                 label=source.get("label"),
                 synthetic_or_real=source.get("synthetic_or_real", "unknown"),
                 split=source.get("split", "unspecified"),
+                label_rules=source.get("label_rules"),
             )
         )
 
@@ -117,7 +121,11 @@ def main() -> None:
     save_rejections(rejections, out_dir / "rejections.csv")
 
     summary = summarize_dataset(valid_rows, rejections)
-    save_json(asdict(summary), out_dir / "dataset_report.json")
+    summary_payload = asdict(summary)
+    summary_payload["processed_clips"] = len(valid_rows)
+    summary_payload["rejected_clips"] = len(rejections)
+    summary_payload["total_indexed_clips"] = len(indexed)
+    save_json(summary_payload, out_dir / "dataset_report.json")
     label_map = {int(k): str(v) for k, v in (cfg.get("label_map") or {"0": "normal", "1": "fight"}).items()}
     save_json({str(k): v for k, v in sorted(label_map.items())}, out_dir / "label_map.json")
 

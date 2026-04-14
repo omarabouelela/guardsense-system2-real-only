@@ -17,7 +17,7 @@ import numpy as np
 LOGGER = logging.getLogger(__name__)
 
 LABEL_MAP: dict[int, str] = {0: "normal", 1: "fight"}
-SUPPORTED_SUFFIXES = {".mp4", ".avi", ".mov", ".mkv"}
+SUPPORTED_SUFFIXES = {".mp4", ".avi"}
 
 
 @dataclass(slots=True)
@@ -200,14 +200,17 @@ def probe_video_metadata(path: Path) -> dict[str, Any]:
 
 
 def parse_label_from_path(path: Path) -> int | None:
-    """Parse class from directory names like 0_normal/1_tension/2_fight."""
-    for part in path.parts:
-        if part.startswith("0_") or part == "0":
+    """Parse binary labels from path tokens and common dataset naming conventions."""
+    tokens = [token.lower() for token in path.parts]
+    for token in tokens:
+        if token in {"0", "0_normal"}:
             return 0
-        if part.startswith("1_") or part == "1":
+        if token in {"1", "1_fight"}:
             return 1
-        if part.startswith("2_") or part == "2":
-            return 2
+        if token in {"nonfight", "non_fight", "non-fight", "normal", "negative"}:
+            return 0
+        if token in {"fight", "violence", "violent", "positive"}:
+            return 1
     return None
 
 
@@ -217,6 +220,7 @@ def index_video_sources(
     label: int | None,
     synthetic_or_real: str,
     split: str = "unspecified",
+    label_rules: dict[str, int] | None = None,
 ) -> list[VideoIndexRecord]:
     """Recursively index verifier clips and enrich metadata with ffprobe."""
     rows: list[VideoIndexRecord] = []
@@ -224,7 +228,17 @@ def index_video_sources(
         for path in source_dir.rglob("*"):
             if not path.is_file() or path.suffix.lower() not in SUPPORTED_SUFFIXES:
                 continue
-            resolved_label = label if label is not None else parse_label_from_path(path)
+            resolved_label: int | None = None
+            if label is not None:
+                resolved_label = label
+            elif label_rules:
+                path_tokens = [token.lower() for token in path.parts]
+                for pattern, class_id in label_rules.items():
+                    if any(pattern.lower() in token for token in path_tokens):
+                        resolved_label = int(class_id)
+                        break
+            if resolved_label is None:
+                resolved_label = parse_label_from_path(path)
             if resolved_label is None:
                 LOGGER.warning("Skipping unlabeled path %s", path)
                 continue
@@ -541,7 +555,7 @@ def save_json(payload: dict[str, Any], output_path: Path) -> None:
 
 def summarize_dataset(rows: Sequence[VideoIndexRecord], rejections: Sequence[RejectionRecord]) -> DatasetSummary:
     """Aggregate summary statistics required by Verifier pipeline."""
-    clips_per_class: dict[str, int] = {"0": 0, "1": 0, "2": 0}
+    clips_per_class: dict[str, int] = {}
     clips_per_source: dict[str, int] = {}
     synthetic_vs_real: dict[str, int] = {}
     frigate_vs_nonfrigate = {"frigate": 0, "non_frigate": 0}
@@ -582,7 +596,20 @@ def save_split_manifest(output_path: Path, rows: Sequence[VideoIndexRecord]) -> 
     with output_path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(
             handle,
-            fieldnames=["clip_id", "label", "split", "source_dataset", "processed_path", "frigate_event_id", "camera_name", "track_id"],
+            fieldnames=[
+                "clip_id",
+                "label",
+                "split",
+                "source_dataset",
+                "original_path",
+                "processed_path",
+                "fps",
+                "duration_seconds",
+                "resolution",
+                "frigate_event_id",
+                "camera_name",
+                "track_id",
+            ],
         )
         writer.writeheader()
         for row in rows:
@@ -592,7 +619,11 @@ def save_split_manifest(output_path: Path, rows: Sequence[VideoIndexRecord]) -> 
                     "label": row.label,
                     "split": row.split,
                     "source_dataset": row.source_dataset,
+                    "original_path": row.original_path,
                     "processed_path": row.processed_path,
+                    "fps": row.fps,
+                    "duration_seconds": row.duration_seconds,
+                    "resolution": f"{row.width}x{row.height}" if row.width and row.height else "",
                     "frigate_event_id": row.frigate_event_id,
                     "camera_name": row.camera_name,
                     "track_id": row.track_id,
