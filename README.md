@@ -55,8 +55,41 @@ dataset/
 Runtime/fusion code is preserved for downstream use, but **training/evaluation do not depend on it**.
 In `configs/runtime.yaml`, `run_dual_inference` is disabled by default for real-only binary training workflows.
 
+## Real video → pose extraction (Trigger)
+
+Use `configs/pose_extraction.yaml` to extract YOLOv8-pose keypoints from real videos before running Trigger preprocessing.
+
+- **Canonical output format**: one `.txt` per video sequence with one YOLO pose row per frame (class, bbox, 17 keypoints as `x y visibility/confidence`).
+- **Supported extraction inputs**:
+  - `dataset/raw/rwf2000/videos` → `dataset/raw/rwf2000/pose`
+  - `dataset/raw/airtlab/videos` → `dataset/raw/airtlab/pose`
+  - `dataset/raw/classroom_hard_negative/videos` → `dataset/raw/classroom_hard_negative/pose`
+  - `dataset/raw/xd_violence/selected_clips` → `dataset/raw/xd_violence/pose` (optional)
+- **Binary labels in extraction manifest**:
+  - `0 = normal/non-fight`
+  - `1 = fight`
+  - Mapping is explicit in per-dataset `label_rules` / `fixed_label` in `configs/pose_extraction.yaml`.
+
+### Extraction command
+
+```bash
+python -m src.scripts.extract_pose_from_videos --config configs/pose_extraction.yaml
+```
+
+This writes:
+- pose `.txt` files under each dataset `pose/` folder
+- extraction manifest CSV at `artifacts/pose_extraction/manifest.csv`
+- JSON detail and summary files next to the manifest
+
+Run Trigger preprocessing after extraction:
+
+```bash
+python -m src.scripts.prepare_trigger_data --config configs/trigger_data.yaml
+```
+
 ## Main configs
 
+- Pose extraction: `configs/pose_extraction.yaml`
 - Trigger data: `configs/trigger_data.yaml`
 - Trigger train/eval: `configs/trigger_train.yaml`, `configs/trigger_eval.yaml`
 - Verifier data: `configs/verifier_data.yaml`

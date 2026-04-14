@@ -19,18 +19,39 @@ split:
   seed: 42
   source_aware: true
 sources:
-  - name: rwf2000
+  # Pose should be extracted first using configs/pose_extraction.yaml.
+  - name: rwf2000_nonfight
     paths:
-      - dataset/raw/rwf2000/pose
+      - dataset/raw/rwf2000/pose/nonfight
+      - dataset/raw/rwf2000/pose/train/nonfight
+      - dataset/raw/rwf2000/pose/val/nonfight
+    label: 0
+    synthetic_or_real: real
+  - name: rwf2000_fight
+    paths:
+      - dataset/raw/rwf2000/pose/fight
+      - dataset/raw/rwf2000/pose/train/fight
+      - dataset/raw/rwf2000/pose/val/fight
     label: 1
     synthetic_or_real: real
-  - name: airtlab
+  - name: airtlab_nonfight
     paths:
-      - dataset/raw/airtlab/pose
+      - dataset/raw/airtlab/pose/nonfight
+      - dataset/raw/airtlab/pose/non-fight
     label: 0
+    synthetic_or_real: real
+  - name: airtlab_fight_optional
+    paths:
+      - dataset/raw/airtlab/pose/fight
+    label: 1
     synthetic_or_real: real
   - name: classroom_hard_negative
     paths:
       - dataset/raw/classroom_hard_negative/pose
     label: 0
+    synthetic_or_real: real
+  - name: xd_violence_selected_optional
+    paths:
+      - dataset/raw/xd_violence/pose
+    label: 1
     synthetic_or_real: real
