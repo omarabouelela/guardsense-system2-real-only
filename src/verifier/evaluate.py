@@ -64,7 +64,7 @@ def evaluate_verifier(config: VerifierEvalConfig) -> dict[str, Any]:
 
     true_np = np.concatenate(y_true)
     pred_np = np.concatenate(y_pred)
-    metrics = macro_metrics(true_np, pred_np)
+    metrics = macro_metrics(true_np, pred_np, num_classes=model_cfg.num_classes)
     metrics["loss"] = float(np.mean(losses)) if losses else 0.0
 
     if config.output_path:

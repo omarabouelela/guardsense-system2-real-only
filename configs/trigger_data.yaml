@@ -1,5 +1,9 @@
+mode: real_only_binary
 output_dir: artifacts/trigger_data
 txt_layout: auto
+label_map:
+  "0": normal
+  "1": fight
 normalization:
   mode: frame
   frame_width: 1920
@@ -18,15 +22,15 @@ sources:
   - name: rwf2000
     paths:
       - dataset/raw/rwf2000/pose
-    label: 2
+    label: 1
     synthetic_or_real: real
   - name: airtlab
     paths:
       - dataset/raw/airtlab/pose
     label: 0
     synthetic_or_real: real
-  - name: simuletic_prefight
+  - name: classroom_hard_negative
     paths:
-      - dataset/raw/simuletic/pose
-    label: 1
-    synthetic_or_real: synthetic
+      - dataset/raw/classroom_hard_negative/pose
+    label: 0
+    synthetic_or_real: real

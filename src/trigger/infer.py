@@ -79,6 +79,7 @@ class TriggerInferencer:
         self.model = build_trigger_model(model_cfg).to(self.device)
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.model.eval()
+        self.num_classes = int(model_cfg.num_classes)
 
     def infer_tensor(
         self,
@@ -107,10 +108,10 @@ class TriggerInferencer:
             "track_id": event.track_id if event else None,
             "timestamp_start": event.timestamp_start if event else None,
             "timestamp_end": event.timestamp_end if event else None,
-            "class_probabilities": {"0": float(probs_mean[0]), "1": float(probs_mean[1]), "2": float(probs_mean[2])},
+            "class_probabilities": {str(class_id): float(probs_mean[class_id]) for class_id in range(self.num_classes)},
             "predicted_label": pred,
             "confidence": conf,
-            "notes": "label_1 is pre-fight/tension; keep distinct from label_2 fight",
+            "notes": "Real-only binary-first inference output; class ids are configuration-driven.",
             "source_type": source_type,
         }
 

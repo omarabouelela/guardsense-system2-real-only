@@ -1,4 +1,8 @@
+mode: real_only_binary
 output_dir: artifacts/verifier_data
+label_map:
+  "0": normal
+  "1": fight
 
 sources:
   - name: rwf2000_real
@@ -13,10 +17,10 @@ sources:
     paths: [dataset/raw/classroom_hard_negative]
     label: 0
     synthetic_or_real: real
-  - name: simuletic_label1_gap_fill
-    paths: [dataset/raw/simuletic/label1]
-    label: 1
-    synthetic_or_real: synthetic
+  - name: xd_violence_selected
+    paths: [dataset/raw/xd_violence/selected_clips]
+    label: null
+    synthetic_or_real: real
 
 validation:
   min_duration_seconds: 1.5

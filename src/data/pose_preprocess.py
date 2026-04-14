@@ -18,7 +18,7 @@ import pandas as pd
 
 LOGGER = logging.getLogger(__name__)
 
-LABEL_MAP: dict[int, str] = {0: "normal", 1: "pre_fight", 2: "fight"}
+LABEL_MAP: dict[int, str] = {0: "normal", 1: "fight"}
 TXT_LAYOUT_VALUES = {"auto", "sequence_per_file", "frame_per_file"}
 
 

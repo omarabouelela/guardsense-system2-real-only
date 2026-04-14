@@ -57,12 +57,12 @@ def _read_json_if_exists(path: Path) -> dict[str, Any]:
 
 def _warnings(report: dict[str, Any]) -> list[str]:
     warnings: list[str] = []
-    if report.get("label_1_recall", 1.0) < 0.5:
-        warnings.append("low label 1 recall")
+    if report.get("focus_class_recall", 1.0) < 0.5:
+        warnings.append("low focus-class recall")
     if report.get("label_0_false_positives", 0) > 0:
         warnings.append("non-zero label 0 false positives")
-    if report.get("label_1_vs_2_confusions", 0) > 0:
-        warnings.append("label 1 and 2 confusion present")
+    if report.get("cross_class_confusions", 0) > 0:
+        warnings.append("cross-class confusion present")
     return warnings
 
 

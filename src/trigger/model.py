@@ -15,7 +15,7 @@ class TriggerModelConfig:
     architecture: str = "temporal_cnn"
     num_keypoints: int = 17
     num_channels: int = 3
-    num_classes: int = 3
+    num_classes: int = 2
     hidden_size: int = 128
     dropout: float = 0.2
 

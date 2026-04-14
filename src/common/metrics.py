@@ -7,7 +7,13 @@ from typing import Any
 import numpy as np
 
 
-def classification_metrics(y_true: np.ndarray, y_pred: np.ndarray, num_classes: int = 3) -> dict[str, Any]:
+def classification_metrics(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    num_classes: int,
+    class_names: dict[int, str] | None = None,
+) -> dict[str, Any]:
+    """Compute generic multiclass classification metrics and confusion matrix."""
     conf = np.zeros((num_classes, num_classes), dtype=np.int64)
     for t, p in zip(y_true, y_pred, strict=False):
         conf[int(t), int(p)] += 1
@@ -21,7 +27,8 @@ def classification_metrics(y_true: np.ndarray, y_pred: np.ndarray, num_classes: 
         precision = tp / (tp + fp + 1e-9)
         recall = tp / (tp + fn + 1e-9)
         f1 = (2 * precision * recall) / (precision + recall + 1e-9)
-        per_class[str(class_id)] = {"precision": float(precision), "recall": float(recall), "f1": float(f1)}
+        class_key = class_names.get(class_id, str(class_id)) if class_names else str(class_id)
+        per_class[class_key] = {"precision": float(precision), "recall": float(recall), "f1": float(f1)}
         precisions.append(float(precision))
         recalls.append(float(recall))
         f1s.append(float(f1))

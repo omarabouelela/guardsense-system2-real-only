@@ -36,6 +36,7 @@ class VerifierInferencer:
         self.model = build_verifier_model(model_cfg).to(self.device)
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.model.eval()
+        self.num_classes = int(model_cfg.num_classes)
 
     def infer_clip(self, clip_path: Path, event: FrigateEvent | None = None, source_type: str = "direct_clip") -> dict[str, Any]:
         """Inference on one clip file."""
@@ -57,9 +58,9 @@ class VerifierInferencer:
             "camera_name": event.camera_name if event else "unknown_camera",
             "clip_path_used": str(clip_path),
             "predicted_label": pred,
-            "class_probabilities": {"0": float(probs[0]), "1": float(probs[1]), "2": float(probs[2])},
+            "class_probabilities": {str(class_id): float(probs[class_id]) for class_id in range(self.num_classes)},
             "confidence": conf,
-            "notes": "Verifier label 1 remains distinct from label 2.",
+            "notes": "Real-only binary-first inference output; class ids are configuration-driven.",
             "source_type": source_type,
             "timestamp_start": event.timestamp_start if event else None,
             "timestamp_end": event.timestamp_end if event else None,
@@ -80,7 +81,7 @@ class VerifierInferencer:
                 "camera_name": event.camera_name,
                 "clip_path_used": None,
                 "predicted_label": None,
-                "class_probabilities": {"0": 0.0, "1": 0.0, "2": 0.0},
+                "class_probabilities": {str(class_id): 0.0 for class_id in range(self.num_classes)},
                 "confidence": 0.0,
                 "notes": "Video clip unavailable (snapshot-only or missing media).",
                 "source_type": source_type,
