@@ -20,6 +20,12 @@ This repository is the **separate real-data-only** GuardSense Fit System 2 codeb
 ### Verifier (RGB clips)
 - Input: `.mp4` / `.avi`
 - Standardization target: 30 FPS, 640x360 (or compatible), 2–4 seconds
+- Active data sources (binary real-only):
+  - `RWF-2000`: `fight -> 1`, `nonfight -> 0`
+  - `AIRTLab`: default `non-fight -> 0`
+  - `classroom_hard_negative`: all clips `-> 0`
+  - `XD-Violence/selected_clips`: optional, disabled by default, `-> 1` when enabled
+- Explicitly excluded from active Verifier path: Simuletic/synthetic dependency and Bullying10K `.npy` inputs
 
 ## Real dataset layout target
 
@@ -109,3 +115,12 @@ python -m src.scripts.eval_verifier --config configs/verifier_eval.yaml
 
 python -m src.scripts.run_full_pipeline --config configs/runtime.yaml --output-dir artifacts/full_pipeline --dry-run
 ```
+
+## Verifier preprocessing outputs
+
+`prepare_verifier_data` writes:
+- `artifacts/verifier_data/clips/*.mp4` standardized clips
+- `artifacts/verifier_data/metadata.csv` full per-clip metadata (`clip_id`, `source_dataset`, `original_path`, `processed_path`, `label`, `fps`, `duration_seconds`, `resolution`, `split`)
+- `artifacts/verifier_data/split_manifest.csv` train/val/test manifest
+- `artifacts/verifier_data/rejections.csv` rejected/unreadable/corrupt clip reasons
+- `artifacts/verifier_data/dataset_report.json` processed/rejected counts and per-class/per-source statistics

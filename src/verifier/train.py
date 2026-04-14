@@ -7,7 +7,7 @@ import logging
 import random
 import subprocess
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -121,7 +121,7 @@ def train_verifier(config: VerifierTrainConfig) -> dict[str, Any]:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
     device = resolve_device(config.device)
 
-    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     run_dir = Path(config.output_dir) / f"verifier_{config.model.backbone}_{run_id}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -236,7 +236,15 @@ def _save_artifacts(
     (run_dir / "config_snapshot.yaml").write_text(yaml.safe_dump(config_snapshot, sort_keys=False), encoding="utf-8")
     (run_dir / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
 
+    label_map_path = Path(config.manifest_path).parent / "label_map.json"
+    label_map: dict[str, str] = {}
+    if label_map_path.exists():
+        label_map = json.loads(label_map_path.read_text(encoding="utf-8"))
+
     pred_df = pd.DataFrame(pred_rows)
+    if not pred_df.empty:
+        pred_df["y_true_name"] = pred_df["y_true"].map(lambda value: label_map.get(str(int(value)), str(int(value))))
+        pred_df["y_pred_name"] = pred_df["y_pred"].map(lambda value: label_map.get(str(int(value)), str(int(value))))
     pred_df.to_csv(run_dir / "predictions.csv", index=False)
 
     class_dist = pred_df["y_true"].value_counts().sort_index().to_dict() if not pred_df.empty else {}
@@ -284,6 +292,7 @@ def _save_artifacts(
     dataset_summary = {
         "manifest_path": config.manifest_path,
         "samples_total": int(len(manifest_df)),
+        "labels": label_map,
         "synthetic_vs_real": manifest_df["synthetic_or_real"].value_counts().to_dict() if "synthetic_or_real" in manifest_df.columns else {},
         "source_distribution": manifest_df["source_dataset"].value_counts().to_dict() if "source_dataset" in manifest_df.columns else {},
     }

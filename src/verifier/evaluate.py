@@ -66,6 +66,9 @@ def evaluate_verifier(config: VerifierEvalConfig) -> dict[str, Any]:
     pred_np = np.concatenate(y_pred)
     metrics = macro_metrics(true_np, pred_np, num_classes=model_cfg.num_classes)
     metrics["loss"] = float(np.mean(losses)) if losses else 0.0
+    label_map_path = Path(config.manifest_path).parent / "label_map.json"
+    if label_map_path.exists():
+        metrics["label_map"] = json.loads(label_map_path.read_text(encoding="utf-8"))
 
     if config.output_path:
         output_path = Path(config.output_path)

@@ -6,21 +6,36 @@ label_map:
 
 sources:
   - name: rwf2000_real
-    paths: [dataset/raw/rwf2000]
-    label: null
+    enabled: true
+    paths: [dataset/raw/rwf2000/videos]
     synthetic_or_real: real
-  - name: airtlab_real
-    paths: [dataset/raw/airtlab]
-    label: null
+    label_rules:
+      fight: 1
+      nonfight: 0
+
+  - name: airtlab_nonfight
+    enabled: true
+    paths: [dataset/raw/airtlab/videos]
     synthetic_or_real: real
-  - name: classroom_hard_negative
-    paths: [dataset/raw/classroom_hard_negative]
     label: 0
+
+  - name: airtlab_acted_fight_optional
+    enabled: false
+    paths: [dataset/raw/airtlab/videos/acted_fight]
     synthetic_or_real: real
-  - name: xd_violence_selected
+    label: 1
+
+  - name: classroom_hard_negative
+    enabled: true
+    paths: [dataset/raw/classroom_hard_negative/videos]
+    synthetic_or_real: real
+    label: 0
+
+  - name: xd_violence_selected_optional
+    enabled: false
     paths: [dataset/raw/xd_violence/selected_clips]
-    label: null
     synthetic_or_real: real
+    label: 1
 
 validation:
   min_duration_seconds: 1.5
