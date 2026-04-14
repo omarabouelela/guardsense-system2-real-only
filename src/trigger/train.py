@@ -150,7 +150,7 @@ def train_trigger(config: TrainConfig) -> dict[str, Any]:
     output_root.mkdir(parents=True, exist_ok=True)
 
     run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    run_dir = output_root / f"trigger_temporal_cnn_{run_id}"
+    run_dir = output_root / f"trigger_binary_real_only_{config.model.architecture}_{run_id}"
     run_dir.mkdir(parents=True, exist_ok=True)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")

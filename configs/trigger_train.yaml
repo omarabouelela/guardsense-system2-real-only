@@ -1,4 +1,6 @@
 mode: real_only_binary
+# Produces timestamped run dirs like:
+# artifacts/runs/trigger_binary_real_only_<architecture>_<UTC_TIMESTAMP>/
 dataset_path: artifacts/trigger_data/trigger_dataset.hdf5
 output_dir: artifacts/runs
 batch_size: 64
