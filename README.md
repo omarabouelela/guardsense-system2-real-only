@@ -128,3 +128,11 @@ Recommended future path:
 - Verifier data: `configs/verifier_data.yaml`
 - Verifier train/eval: `configs/verifier_train.yaml`, `configs/verifier_eval.yaml`
 - Full pipeline orchestration: `configs/runtime.yaml`
+
+## Tests
+
+Run tests with `pytest` (this repository's tests are written in pytest style, so `unittest discover` is not the canonical command):
+
+```bash
+python -m pytest -q
+```

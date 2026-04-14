@@ -6,6 +6,7 @@ import csv
 import json
 import logging
 import math
+import re
 import subprocess
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -199,18 +200,71 @@ def probe_video_metadata(path: Path) -> dict[str, Any]:
     return meta
 
 
+def _normalize_label_token(value: str) -> str:
+    """Normalize a label token by lowercasing and dropping non-alphanumeric chars."""
+    return re.sub(r"[^a-z0-9]+", "", value.lower())
+
+
+def _extract_path_label_tokens(path: Path) -> set[str]:
+    """Extract canonical label tokens from path segments without substring matching."""
+    tokens: set[str] = set()
+    for part in path.parts:
+        normalized_part = part.lower()
+        compact = _normalize_label_token(normalized_part)
+        if compact:
+            tokens.add(compact)
+        for token in re.split(r"[^a-z0-9]+", normalized_part):
+            compact_token = _normalize_label_token(token)
+            if compact_token:
+                tokens.add(compact_token)
+    return tokens
+
+
+def resolve_label_from_rules(path: Path, label_rules: dict[str, int]) -> int | None:
+    """Resolve label from config rules using normalized token equality and specificity.
+
+    Rules are matched against normalized path tokens only (no substring includes), then
+    evaluated from most-specific pattern to least-specific pattern.
+    """
+    if not label_rules:
+        return None
+
+    tokens = _extract_path_label_tokens(path)
+    sorted_rules = sorted(
+        ((str(pattern), int(class_id), _normalize_label_token(str(pattern))) for pattern, class_id in label_rules.items()),
+        key=lambda item: (len(item[2]), item[0]),
+        reverse=True,
+    )
+    for pattern, class_id, normalized_pattern in sorted_rules:
+        if normalized_pattern and normalized_pattern in tokens:
+            LOGGER.debug("Resolved label via rule '%s' for %s -> %d", pattern, path, class_id)
+            return class_id
+    return None
+
+
 def parse_label_from_path(path: Path) -> int | None:
     """Parse binary labels from path tokens and common dataset naming conventions."""
-    tokens = [token.lower() for token in path.parts]
-    for token in tokens:
-        if token in {"0", "0_normal"}:
-            return 0
-        if token in {"1", "1_fight"}:
-            return 1
-        if token in {"nonfight", "non_fight", "non-fight", "normal", "negative"}:
-            return 0
-        if token in {"fight", "violence", "violent", "positive"}:
-            return 1
+    tokens = _extract_path_label_tokens(path)
+    if "0" in tokens or "0normal" in tokens:
+        return 0
+    if "1" in tokens or "1fight" in tokens:
+        return 1
+
+    ordered_aliases: list[tuple[str, int]] = [
+        ("nonfight", 0),
+        ("nonviolent", 0),
+        ("nonviolence", 0),
+        ("normal", 0),
+        ("safe", 0),
+        ("negative", 0),
+        ("fight", 1),
+        ("violence", 1),
+        ("violent", 1),
+        ("positive", 1),
+    ]
+    for alias, class_id in ordered_aliases:
+        if alias in tokens:
+            return class_id
     return None
 
 
@@ -232,11 +286,7 @@ def index_video_sources(
             if label is not None:
                 resolved_label = label
             elif label_rules:
-                path_tokens = [token.lower() for token in path.parts]
-                for pattern, class_id in label_rules.items():
-                    if any(pattern.lower() in token for token in path_tokens):
-                        resolved_label = int(class_id)
-                        break
+                resolved_label = resolve_label_from_rules(path, label_rules)
             if resolved_label is None:
                 resolved_label = parse_label_from_path(path)
             if resolved_label is None:
