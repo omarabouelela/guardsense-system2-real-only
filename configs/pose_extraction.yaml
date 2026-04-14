@@ -1,0 +1,56 @@
+log_level: INFO
+log_file: artifacts/logs/pose_extraction.log
+manifest_path: artifacts/pose_extraction/manifest.csv
+
+extractor:
+  model: yolov8n-pose.pt
+  device: auto
+  conf_threshold: 0.25
+  iou_threshold: 0.45
+  person_selection: highest_confidence
+  output_format: sequence_txt
+  overwrite: false
+  min_detected_frame_ratio: 0.05
+  low_detection_policy: keep
+
+datasets:
+  - name: rwf2000
+    input_dir: dataset/raw/rwf2000/videos
+    output_dir: dataset/raw/rwf2000/pose
+    recursive: true
+    default_label: 0
+    label_rules:
+      - contains: /fight/
+        label: 1
+        source_class_name: fight
+      - contains: /nonfight/
+        label: 0
+        source_class_name: nonfight
+
+  - name: airtlab
+    input_dir: dataset/raw/airtlab/videos
+    output_dir: dataset/raw/airtlab/pose
+    recursive: true
+    default_label: 0
+    label_rules:
+      - contains: /fight/
+        label: 1
+        source_class_name: fight
+      - contains: /non-fight/
+        label: 0
+        source_class_name: nonfight
+      - contains: /nonfight/
+        label: 0
+        source_class_name: nonfight
+
+  - name: classroom_hard_negative
+    input_dir: dataset/raw/classroom_hard_negative/videos
+    output_dir: dataset/raw/classroom_hard_negative/pose
+    recursive: true
+    fixed_label: 0
+
+  - name: xd_violence_selected
+    input_dir: dataset/raw/xd_violence/selected_clips
+    output_dir: dataset/raw/xd_violence/pose
+    recursive: true
+    default_label: 1
