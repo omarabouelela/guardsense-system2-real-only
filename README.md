@@ -44,6 +44,48 @@ dataset/
 5. **Train Verifier** (binary).
 6. **Evaluate Trigger/Verifier**.
 
+### One-command real-only binary orchestration (new)
+
+Use the dedicated orchestration runner for local development/training:
+
+```bash
+python src/scripts/run_real_only_pipeline.py --all
+```
+
+Quick variants:
+
+```bash
+# Trigger-only pipeline (extract -> prepare -> train -> eval)
+python src/scripts/run_real_only_pipeline.py --trigger-only
+
+# Verifier-only pipeline (prepare -> train -> eval)
+python src/scripts/run_real_only_pipeline.py --verifier-only
+
+# Preview commands only (no execution)
+python src/scripts/run_real_only_pipeline.py --all --dry-run
+
+# Skip stages conservatively when outputs/checkpoints already exist
+python src/scripts/run_real_only_pipeline.py --all --skip-existing
+```
+
+Config overrides are supported for each stage:
+
+```bash
+python src/scripts/run_real_only_pipeline.py --all \
+  --pose-config configs/pose_extraction.yaml \
+  --trigger-data-config configs/trigger_data.yaml \
+  --trigger-train-config configs/trigger_train.yaml \
+  --trigger-eval-config configs/trigger_eval.yaml \
+  --verifier-data-config configs/verifier_data.yaml \
+  --verifier-train-config configs/verifier_train.yaml \
+  --verifier-eval-config configs/verifier_eval.yaml
+```
+
+Notes:
+- The runner calls existing per-stage scripts (no replacement of core training/prep logic).
+- `--skip-existing` uses conservative checks (manifest/dataset/checkpoint presence) to avoid accidental re-runs.
+- The long manual commands below are still supported and recommended for stage-level debugging.
+
 ### Canonical commands (start to finish)
 
 ```bash
